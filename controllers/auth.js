@@ -14,14 +14,14 @@ exports.login = async (req, res) => {
         }
 
         const user = rows[0]
-        const isMatch = await bcrypt.compare(password_hash, user.password_hash)
-        if (!isMatch) {
-            res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง'})
-        }
-
-        // if(password !== user.password_hash) {
+        // const isMatch = await bcrypt.compare(password_hash, user.password_hash)
+        // if (!isMatch) {
         //     res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง'})
         // }
+
+        if(password !== user.password_hash) {
+            res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง'})
+        }
 
         const token = jwt.sign(
             {id: user.id , role: user.role},
@@ -43,7 +43,7 @@ exports.login = async (req, res) => {
         })
 
     } catch (error) {
-        res.status(500).json({ success: false , message: 'เกิดข้อผิดพลาด' , error: message.error })
+       res.status(500).json({ success: false , message: 'เกิดข้อผืดพลาด' , error: error.message })
     }
 }
 
@@ -51,6 +51,6 @@ exports.logout = async (req, res) => {
     try {
         res.status(200).json({ success: true, message: 'ออกจากระบบสำเร็จ' })
     } catch (error) {
-        res.status(500).json({ success: false , message: 'เกิดข้อผิดพลาด' , error: message.error })
+        res.status(500).json({ success: false , message: 'เกิดข้อผืดพลาด' , error: error.message })
     }
 }

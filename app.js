@@ -10,6 +10,9 @@ app.use(express.urlencoded({ extended: false }))
 const AuthRouter = require('./routes/auth');
 app.use('/api', AuthRouter)
 
+const NurseRouter = require('./routes/nurse');
+app.use('/api', NurseRouter)
+
 app.listen(process.env.PORT, () => 
     console.log(`Server running on port ${process.env.PORT}!`)
 )
