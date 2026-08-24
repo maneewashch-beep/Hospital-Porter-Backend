@@ -13,6 +13,12 @@ app.use('/api', AuthRouter)
 const NurseRouter = require('./routes/nurse');
 app.use('/api', NurseRouter)
 
+const EmployeeRouter = require('./routes/employee');
+app.use('/api', EmployeeRouter)
+
+const ManagerRouter = require('./routes/manager');
+app.use('/api', ManagerRouter)
+
 app.listen(process.env.PORT, () => 
     console.log(`Server running on port ${process.env.PORT}!`)
 )

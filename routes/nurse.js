@@ -14,7 +14,7 @@ router.put('/works/:id', verifyToken, isNurse, Nctrl.updateWork)
 router.get('/works', verifyToken, isNurse, Nctrl.getWorks)
 router.get('/status', verifyToken, isNurse, Nctrl.getWorkStatus)
 router.put('/works/:id/cancel', verifyToken, isNurse, Nctrl.cancelWork)
-router.put('/password/nurse', verifyToken, isNurse, Nctrl.ResetPassword)
+router.put('/password/nurse', verifyToken, isNurse, Nctrl.updateWardPassword)
 router.get('/notify', verifyToken, isNurse, Nctrl.getNotifications)
 
 module.exports = router;
