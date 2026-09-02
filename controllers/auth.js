@@ -10,7 +10,7 @@ exports.login = async (req, res) => {
         const { username, password } = req.body
         const [rows] = await db.query('SELECT * FROM users WHERE username = ?' ,[username])
         if (rows.length === 0) {
-            res.status(400).json({ success: false , message: 'ไม่พบผู้ใช้งาน'})
+            return res.status(400).json({ success: false , message: 'ไม่พบผู้ใช้งาน'})
         }
 
         const user = rows[0]
@@ -20,11 +20,11 @@ exports.login = async (req, res) => {
         // }
 
         if(password !== user.password_hash) {
-            res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง'})
+            return res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง'})
         }
 
         const token = jwt.sign(
-            {id: user.id , role: user.role},
+            {id: user.user_id , role: user.role, user: user.username},
             SECRET_KEY,
             { expiresIn: '2h' }
         )
@@ -35,13 +35,12 @@ exports.login = async (req, res) => {
             data: {
                 token: token,
                 user: {
-                    id: user.id ,
+                    id: user.user_id ,
                     user: user.username,
                     role: user.role
                 }
             }
         })
-
     } catch (error) {
        res.status(500).json({ success: false , message: 'เกิดข้อผืดพลาด' , error: error.message })
     }

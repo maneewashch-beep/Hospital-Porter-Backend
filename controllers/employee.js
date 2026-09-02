@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 
 exports.getProfile = async (req, res) => {
     try {
-        const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id])
+        const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id])
 
         if (profile.length === 0) {
             return res.status(400).json({ success: false , message: 'ไม่พบข้อมูลผู้ใช้งาน'})
@@ -19,14 +19,14 @@ exports.createProfile = async (req, res) => {
     try {
         const { fname , lname, img, phone } = req.body
 
-        const [U_profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id])
+        const [U_profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id])
         if (U_profile.length > 0) {
             return res.status(400).json({ success: false, message: 'คุณสร้างข้อมูลไปแล้ว'})
         }
 
         await db.query (
             'INSERT INTO user_profiles (user_id , first_name , last_name, image_url , phone_number) VALUES (?, ?, ?, ?, ?)',
-            [req.user_id , fname, lname, img, phone]
+            [req.user.id , fname, lname, img, phone]
         ) 
         
         res.status(201).json({ success: true, message: 'สร้างข้อมูลสำเร็จ'})
@@ -39,14 +39,14 @@ exports.updateProfile = async (req, res) => {
     try {
         const { fname , lname , img , phone } = req.body
 
-        const [U_profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id])
+        const [U_profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id])
         if (U_profile.length === 0) {
             return res.status(400).json({ success: false , message: 'ไม่พบข้อมูลผู้ใช้งาน'})
         }
 
         await db.query(
             'UPDATE user_profiles SET fname = ? , lname = ? , img = ? , phone = ? WHERE user_id = ?',
-            [fname, lname, img, phone, req.user_id]
+            [fname, lname, img, phone, req.user.id]
         )
 
         res.status(201).json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' })
@@ -64,7 +64,7 @@ exports.getEmployeeHistory = async (req, res) => {
             INNER JOIN work_assignments wa ON w.work_id = wa.work_id 
             WHERE wa.employee_id = ? AND wa.status IN ('completed', 'cancelled')
             ORDER BY wa.updated_at DESC 
-        `, [req.user_id])
+        `, [req.user.id])
         
         res.status(200).json({ success: true, total: history.length, data: history })
     } catch (error) {
@@ -81,7 +81,7 @@ exports.getEmployeeAssign = async (req, res) => {
             INNER JOIN work_assignments wa ON w.work_id = wa.work_id 
             WHERE wa.employee_id = ? AND wa.status NOT IN ('completed', 'cancelled')
             ORDER BY wa.assigned_at ASC
-        ` [req.user_id])
+        ` [req.user.id])
 
         res.status(200).json({ success: true, total: assignWorks.length, data: assignWorks })
     } catch (error) {
@@ -94,16 +94,26 @@ exports.getDailyWorks = async (req, res) => {
         const date = req.query.date || new Date().toISOString().split('T')[0]
 
         const [work] = await db.query(`
-            SELECT w.work_id, w.title, w.description, w.work_date, wa.status 
+            SELECT 
+                w.work_id, w.title, w.description, w.work_date, 
+                w.created_at,
+                w.origin, 
+                w.destination, 
+                w.equipment_type, 
+                w.work_time,
+                wa.status,
+                creator_u.username AS creator_username,
+                creator_u.role AS creator_role
             FROM works w
             INNER JOIN work_assignments wa ON w.work_id = wa.work_id
+            LEFT JOIN users creator_u ON w.created_by = creator_u.user_id
             WHERE wa.employee_id = ? AND w.work_date = ?
             ORDER BY wa.assigned_at ASC   
-        `, [req.user_id, date])
+        `, [req.user.id, date])
 
         res.status(200).json({ success: true, total: work.length, data: work })
     } catch (error) {
-        res.status(500).json({ success: false , message: 'เกิดข้อผืดพลาด' , error: error.message })
+        res.status(500).json({ success: false , message: 'เกิดข้อผิดพลาด' , error: error.message })
     }
 }
 
@@ -121,7 +131,7 @@ exports.updateWorkStatus = async (req, res) => {
             UPDATE work_assignments 
             SET status = ? 
             WHERE work_id = ? AND employee_id = ?
-        `, [status, id, req.user_id])
+        `, [status, id, req.user.id])
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบงานที่ได้รับมอบหมาย หรือคุุณไม่มีสิทธิ์แก้ไขงานนี้' })
@@ -156,7 +166,7 @@ exports.updateEmployeePassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านใหม่' });
         }
 
-        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user_id]);
+        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user.id]);
         
         if (users.length === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' });            
@@ -173,7 +183,7 @@ exports.updateEmployeePassword = async (req, res) => {
 
         await db.query(
             'UPDATE users SET password_hash = ?, password_reset_count = password_reset_count + 1 WHERE user_id = ?', 
-            [newPasswordHash, req.user_id]
+            [newPasswordHash, req.user.id]
         );
 
         res.status(200).json({ success: true, message: 'ตั้งรหัสผ่านสำเร็จ' });
@@ -198,7 +208,7 @@ exports.getNotifications = async (req, res) => {
             WHERE wa.employee_id = ?
         `;
 
-        const queryParams = [req.user_id];
+        const queryParams = [req.user.id];
         
         if (status) { 
             query += ` AND wa.status = ?`;

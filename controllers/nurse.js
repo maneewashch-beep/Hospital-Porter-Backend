@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 exports.getProfile = async (req, res) => {
     try {
-        const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id]);
+        const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id]);
 
         if (profile.length === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้งาน' });
@@ -24,7 +24,7 @@ exports.createProfile = async (req, res) => {
             return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
         }
 
-        const [uProfile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id]);
+        const [uProfile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id]);
         if (uProfile.length > 0) {
             return res.status(400).json({ success: false, message: 'คุณสร้างข้อมูลไปแล้ว' });
         }
@@ -33,7 +33,7 @@ exports.createProfile = async (req, res) => {
 
         await db.query(
             'INSERT INTO user_profiles (profile_id, user_id, prename, first_name, last_name, image_url, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [profileId, req.user_id, prename, fname, lname, img || null, phone || null]
+            [profileId, req.user.id, prename, fname, lname, img || null, phone || null]
         );
         
         res.status(201).json({ success: true, message: 'สร้างข้อมูลสำเร็จ' });
@@ -46,14 +46,14 @@ exports.updateProfile = async (req, res) => {
     try {
         const { prename, fname, lname, img, phone } = req.body;
 
-        const [uProfile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user_id]);
+        const [uProfile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id]);
         if (uProfile.length === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้งาน' });
         }
 
         await db.query(
             'UPDATE user_profiles SET prename = ?, first_name = ?, last_name = ?, image_url = ?, phone_number = ? WHERE user_id = ?',
-            [prename, fname, lname, img, phone, req.user_id]
+            [prename, fname, lname, img, phone, req.user.id]
         );
 
         res.status(200).json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' });
@@ -85,7 +85,7 @@ exports.getHistory = async (req, res) => {
             ORDER BY w.created_at DESC
         `;
 
-        const [history] = await db.query(query, [req.user_id]);
+        const [history] = await db.query(query, [req.user.id]);
 
         res.status(200).json({ success: true, total: history.length, data: history });
     } catch (error) {
@@ -111,7 +111,7 @@ exports.getTotalHistory = async (req, res) => {
             ORDER BY w.created_at DESC
         `;
 
-        const [totalHistory] = await db.query(query, [req.user_id]);
+        const [totalHistory] = await db.query(query, [req.user.id]);
 
         res.status(200).json({ success: true, data: totalHistory });
     } catch (error) {
@@ -127,7 +127,7 @@ exports.updateWardPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านใหม่' });
         }
 
-        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user_id]);
+        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user.id]);
         
         if (users.length === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' });            
@@ -144,7 +144,7 @@ exports.updateWardPassword = async (req, res) => {
         
         await db.query(
             'UPDATE users SET password_hash = ?, password_reset_count = password_reset_count + 1 WHERE user_id = ?', 
-            [newPasswordHash, req.user_id]
+            [newPasswordHash, req.user.id]
         );
 
         res.status(200).json({ success: true, message: 'ตั้งรหัสผ่านสำเร็จ' });
@@ -155,15 +155,15 @@ exports.updateWardPassword = async (req, res) => {
 
 exports.createWorks = async (req, res) => {
     try {
-        const { title, description, work_date } = req.body;
+        const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
 
-        if (!title || !work_date) {
-            return res.status(400).json({ success: false, message: 'กรุณากรอกหัวข้อผู้ป่วย/งาน และวันที่ปฏิบัติงาน' });
+        if (!title || !origin || !destination || !equipment_type || !work_date) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (*)' });
         }
 
         const [result] = await db.query(
-            'INSERT INTO works (title, description, work_date, created_by) VALUES (?, ?, ?, ?)',
-            [title, description || null, work_date, req.user_id]
+            'INSERT INTO works (title, origin, destination, equipment_type, work_date, work_time, description, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [title, origin, destination, equipment_type, work_date, work_time || null, description || null, req.user.id]
         );
 
         res.status(201).json({ 
@@ -172,9 +172,13 @@ exports.createWorks = async (req, res) => {
             data: {
                 work_id: result.insertId,
                 title,
-                description,
+                origin,
+                destination,
+                equipment_type,
                 work_date,
-                created_by: req.user_id 
+                work_time,
+                description,
+                created_by: req.user.id 
             }
         });
     } catch (error) {
@@ -185,17 +189,26 @@ exports.createWorks = async (req, res) => {
 exports.updateWork = async (req, res) => {
     try {
         const workId = req.params.id;
-        const { title, description, work_date } = req.body;
+        const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
 
-        const [existingWork] = await db.query('SELECT work_id FROM works WHERE work_id = ? AND created_by = ?', [workId, req.user_id]);
+        if (!title || !origin || !destination || !equipment_type || !work_date) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (*)' });
+        }
+
+        const [existingWork] = await db.query('SELECT work_id FROM works WHERE work_id = ? AND created_by = ?', [workId, req.user.id]);
         
         if (existingWork.length === 0) {
             return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลงาน หรือไม่มีสิทธิ์แก้ไขงานนี้' });
         }
 
+        const [assignment] = await db.query('SELECT * FROM work_assignments WHERE work_id = ?', [workId]);
+        if (assignment.length > 0) {
+            return res.status(403).json({ success: false, message: 'ไม่สามารถแก้ไขได้ เนื่องจาก Manager จ่ายงานนี้แล้ว' });
+        }
+
         await db.query(
-            'UPDATE works SET title = ?, description = ?, work_date = ? WHERE work_id = ? AND created_by = ?',
-            [title, description || null, work_date, workId, req.user_id]
+            'UPDATE works SET title = ?, origin = ?, destination = ?, equipment_type = ?, work_date = ?, work_time = ?, description = ? WHERE work_id = ? AND created_by = ?',
+            [title, origin, destination, equipment_type, work_date, work_time || null, description || null, workId, req.user.id]
         );
 
         res.status(200).json({ success: true, message: 'แก้ไขข้อมูลสำเร็จ' });
@@ -215,8 +228,13 @@ exports.getWorks = async (req, res) => {
                 w.work_date,
                 w.created_at,
                 w.updated_at,
+                w.origin, 
+                w.destination, 
+                w.equipment_type, 
+                w.work_time,
                 wa.assignment_id,
                 wa.employee_id,
+                w.cancel_reason,
                 COALESCE(wa.status, 'pending') AS status,
                 emp_p.prename AS employee_prename,
                 emp_p.first_name AS employee_first_name,
@@ -228,7 +246,7 @@ exports.getWorks = async (req, res) => {
             WHERE w.created_by = ?
         `;
 
-        const queryParams = [req.user_id];
+        const queryParams = [req.user.id];
         if (date) {
             query += ` AND w.work_date = ?`; 
             queryParams.push(date);
@@ -255,7 +273,7 @@ exports.getWorkStatus = async (req, res) => {
             GROUP BY COALESCE(wa.status, 'pending')
         `;
 
-        const [statusSummary] = await db.query(query, [req.user_id]);
+        const [statusSummary] = await db.query(query, [req.user.id]);
         
         const allStatus = ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'];
         
@@ -276,9 +294,10 @@ exports.getWorkStatus = async (req, res) => {
 exports.cancelWork = async (req, res) => {
     try {   
         const workId = req.params.id;
+        const { reason } = req.body;
         const [work] = await db.query(
             'SELECT work_id FROM works WHERE work_id = ? AND created_by = ?',
-            [workId, req.user_id]
+            [workId, req.user.id]
         );
 
         if (work.length === 0) {
@@ -288,14 +307,19 @@ exports.cancelWork = async (req, res) => {
         const [assignment] = await db.query('SELECT assignment_id FROM work_assignments WHERE work_id = ?', [workId]);
         
         if (assignment.length > 0) {
+            return res.status(403).json({ success: false, message: 'ไม่สามารถยกเลิกได้ เนื่องจาก Manager จ่ายงานนี้แล้ว' });
+        } else {
             await db.query(
-                'UPDATE work_assignments SET status = "cancelled" WHERE work_id = ?',
+                'UPDATE works SET cancel_reason = ? WHERE work_id = ?',
+                [reason, workId]
+            );
+
+            await db.query(
+                'INSERT INTO work_assignments (work_id, status) VALUES (?, "cancelled")',
                 [workId]
             );
-            res.status(200).json({ success: true, message: 'ยกเลิกรายการเรียบร้อย' });
-        } else {
-            await db.query('DELETE FROM works WHERE work_id = ?', [workId]);
-            res.status(200).json({ success: true, message: 'งานถูกยกเลิกและลบออกจากระบบเนื่องจากยังไม่มีพนักงานรับมอบหมาย' });
+
+            res.status(200).json({ success: true, message: 'ยกเลิกงานและบันทึกเหตุผลเรียบร้อยแล้ว' });
         }
     } catch (error) {
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
@@ -320,7 +344,7 @@ exports.getNotifications = async (req, res) => {
             WHERE w.created_by = ?
         `;
 
-        const queryParams = [req.user_id];
+        const queryParams = [req.user.id];
         if (status) { 
             query += ` AND wa.status = ?`;
             queryParams.push(status);
