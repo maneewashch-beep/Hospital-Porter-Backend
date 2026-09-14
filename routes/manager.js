@@ -16,7 +16,7 @@ router.get('/works', verifyToken, isManager,ManagerCtrl.getWorks)
 router.post('/works/:id/assign', verifyToken, isManager, ManagerCtrl.assignWork)
 router.get('/status', verifyToken, isManager, ManagerCtrl.getWorkStatus)
 router.put('/works/:id/cancel', verifyToken, isManager, ManagerCtrl.cancelWork)
-router.put('/password/manager', verifyToken, isManager, ManagerCtrl.updateManagerPassword)
+router.put('/password/manager', verifyToken, isManager, ManagerCtrl.resetPasswordManager)
 router.get('/notify', verifyToken, isManager, ManagerCtrl.getNotifications)
 
 module.exports = router

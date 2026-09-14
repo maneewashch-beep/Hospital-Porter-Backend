@@ -16,8 +16,14 @@ app.use('/api', NurseRouter)
 const EmployeeRouter = require('./routes/employee');
 app.use('/api/employee', EmployeeRouter)
 
+const SuperVisorRouter = require('./routes/supervisor');
+app.use('/api/supervisor', SuperVisorRouter)
+
 const ManagerRouter = require('./routes/manager');
 app.use('/api/manager', ManagerRouter)
+
+const AdminRouter = require('./routes/admin');
+app.use('/api/admin', AdminRouter)
 
 app.listen(process.env.PORT, () => 
     console.log(`Server running on port ${process.env.PORT}!`)

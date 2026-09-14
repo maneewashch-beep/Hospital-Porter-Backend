@@ -1,903 +1,368 @@
 const db = require("../config/db");
 const bcrypt = require("bcrypt");
 
-// ======================================================
-// PROFILE
-// ======================================================
-
-// GET /api/profile
-// แสดงข้อมูลส่วนตัวของ Admin
-exports.getProfile = async (req, res) => {
+exports.getProfileAdmin = async (req, res) => {
   try {
-    const [profile] = await db.query(
-      `SELECT
-        profile_id,
-        user_id,
-        prename,
-        first_name,
-        last_name,
-        image_url,
-        phone_number
-       FROM user_profiles
-       WHERE user_id = ?`,
-      [req.user.id]
-    );
-
+    const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id])
     if (profile.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบข้อมูลผู้ใช้งาน",
-      });
+      return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้งาน' })
     }
 
-    return res.status(200).json({
-      success: true,
-      data: profile[0],
-    });
+    res.status(200).json({ success: true, data: profile[0] })
   } catch (error) {
-    console.error("Get Profile Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message })
   }
-};
+}
 
-// POST /api/profile
-// สร้างข้อมูลส่วนตัวของ Admin
-exports.createProfile = async (req, res) => {
+exports.createProfileAdmin = async (req, res) => {
   try {
-    const {
-      prename,
-      fname,
-      lname,
-      img,
-      phone,
-    } = req.body;
-
-    const [profile] = await db.query(
-      `SELECT profile_id
-       FROM user_profiles
-       WHERE user_id = ?`,
-      [req.user.id]
-    );
-
-    if (profile.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "คุณสร้างข้อมูลไปแล้ว",
-      });
+    const { prename, fname, lname, img, phone } = req.body
+    if (!prename || !fname || !lname) {
+      return res.status(400).json({success: false, message: 'กรุณากรอกข้อมูลให้ครบ' })
+    }
+    const [profile] = await db.query('SELECT * FROM user_profiles WHERE user_id = ?', [req.user.id])
+    if (uProfile.length > 0) {
+      return res.status(400).json({ success: false, message: 'คุณสร้างโปรไฟล์ไปแล้ว' })
     }
 
-    const profileId = Date.now().toString();
-
+    const profileId = crypto.randomUUID();
     await db.query(
-      `INSERT INTO user_profiles
-       (
-         profile_id,
-         user_id,
-         prename,
-         first_name,
-         last_name,
-         image_url,
-         phone_number
-       )
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        profileId,
-        req.user.id,
-        prename,
-        fname,
-        lname,
-        img,
-        phone,
-      ]
-    );
+      'INSERT INTO user_profiles (profile_id, user_id, prename, first_name, last_name, image_url, phone_number) VALUE (?, ?, ?, ?, ?, ?, ?)',
+      [profileId, req.user.id, prename, fname, lname, img || null, phone || null]
+    )
 
-    return res.status(201).json({
-      success: true,
-      message: "สร้างข้อมูลสำเร็จ",
-      data: {
-        profile_id: profileId,
-      },
-    });
+    res.status(201).json({ success: true, message: 'เพิ่มข้อมูลสำเร็จ' })
   } catch (error) {
-    console.error("Create Profile Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message })
   }
-};
+}
 
-// PUT /api/profile
-// แก้ไขข้อมูลส่วนตัวของ Admin
-exports.updateProfile = async (req, res) => {
+exports.updateProfileAdmin = async (req, res) => {
   try {
-    const {
-      prename,
-      fname,
-      lname,
-      img,
-      phone,
-    } = req.body;
-
-    const [profile] = await db.query(
-      `SELECT profile_id
-       FROM user_profiles
-       WHERE user_id = ?`,
-      [req.user.id]
-    );
-
-    if (profile.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบข้อมูลผู้ใช้งาน",
-      });
+    const { prename, fname, lname, img, phone } = req.body
+    const [uProfile] = await db.query('SELECT * FROM user_profiles WHERE user_id', [req.user.id])
+    if (!uProfile.length === 0) {
+      return res.status(404).json({ success: false, message: 'ไม่พบผู้ใข้งาน' })
     }
 
     await db.query(
-      `UPDATE user_profiles
-       SET
-         prename = ?,
-         first_name = ?,
-         last_name = ?,
-         image_url = ?,
-         phone_number = ?
-       WHERE user_id = ?`,
-      [
-        prename,
-        fname,
-        lname,
-        img,
-        phone,
-        req.user.id,
-      ]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "บันทึกข้อมูลสำเร็จ",
-    });
+      'UPDATE user_profiles SET prename = ?, first_name = ?, last_name = ?, image_url = ?, phone_number = ? WHERE user_id = ?',
+      [prename, fname, lname, img, phone, req.user.id]
+    );  
+        
+    res.status(200).json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' })
   } catch (error) {
-    console.error("Update Profile Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด' , error: error.message})
   }
-};
+}
 
-// ======================================================
-// USERS
-// ======================================================
-
-// GET /api/users
-// แสดงข้อมูลผู้ใช้งานทั้งหมด
-exports.getUsers = async (req, res) => {
+exports.getWardTotalHistory = async (req, res) => {
   try {
-    const [users] = await db.query(
-      `SELECT
-        u.user_id,
-        u.username,
-        u.role,
-        u.password_reset_count,
-        u.created_at,
-        u.updated_at,
-
-        p.profile_id,
-        p.prename,
-        p.first_name,
-        p.last_name,
-        p.image_url,
-        p.phone_number
-
-       FROM users u
-
-       LEFT JOIN user_profiles p
-         ON u.user_id = p.user_id
-
-       ORDER BY u.user_id ASC`
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: users,
-    });
+      const query = `
+          SELECT w.*, u.username as creator_username, p.first_name as creator_first_name, p.last_name as creator_last_name, u.role as creator_role, wa.status, wa.employee_id
+          FROM works w
+          JOIN users u ON w.created_by = u.user_id
+          LEFT JOIN user_profiles p ON u.user_id = p.user_id
+          LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+          WHERE u.role = 'nurse'
+          ORDER BY w.created_at DESC
+      `;
+      const [history] = await db.query(query);
+      res.status(200).json({ success: true, total: history.length, data: history });
   } catch (error) {
-    console.error("Get Users Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
 };
 
-// POST /api/users
-// สร้างผู้ใช้งาน
-exports.createUser = async (req, res) => {
+exports.getWardHistory = async (req, res) => {
   try {
-    const {
-      username,
-      password,
-      role,
-    } = req.body;
-
-    if (!username || !password || !role) {
-      return res.status(400).json({
-        success: false,
-        message: "กรุณากรอกข้อมูลให้ครบถ้วน",
-      });
-    }
-
-    const [existingUser] = await db.query(
-      `SELECT user_id
-       FROM users
-       WHERE username = ?`,
-      [username]
-    );
-
-    if (existingUser.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Username นี้มีอยู่แล้ว",
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(
-      password,
-      10
-    );
-
-    const [result] = await db.query(
-      `INSERT INTO users
-       (
-         username,
-         password_hash,
-         role
-       )
-       VALUES (?, ?, ?)`,
-      [
-        username,
-        passwordHash,
-        role,
-      ]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "สร้างข้อมูลผู้ใช้งานสำเร็จ",
-      data: {
-        user_id: result.insertId,
-        username,
-        role,
-      },
-    });
+      const { user_id } = req.query;
+      const query = `
+          SELECT w.*, wa.status, wa.employee_id
+          FROM works w
+          JOIN users u ON w.created_by = u.user_id
+          LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+          WHERE u.role = 'nurse' AND w.created_by = ?
+          ORDER BY w.created_at DESC
+      `;
+      const [history] = await db.query(query, [user_id]);
+      res.status(200).json({ success: true, total: history.length, data: history });
   } catch (error) {
-    console.error("Create User Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
 };
 
-// PUT /api/users/:id
-// แก้ไขข้อมูลผู้ใช้งาน
-exports.updateUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { username, role } = req.body;
-
-    const [users] = await db.query(
-      `SELECT user_id
-       FROM users
-       WHERE user_id = ?`,
-      [id]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบผู้ใช้งาน",
-      });
-    }
-
-    if (username) {
-      const [duplicate] = await db.query(
-        `SELECT user_id
-         FROM users
-         WHERE username = ?
-         AND user_id != ?`,
-        [username, id]
-      );
-
-      if (duplicate.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Username นี้มีอยู่แล้ว",
-        });
-      }
-    }
-
-    await db.query(
-      `UPDATE users
-       SET
-         username = COALESCE(?, username),
-         role = COALESCE(?, role)
-       WHERE user_id = ?`,
-      [
-        username,
-        role,
-        id,
-      ]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "บันทึกข้อมูลผู้ใช้งานสำเร็จ",
-    });
-  } catch (error) {
-    console.error("Update User Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// PUT /api/password/users
-// เปลี่ยนรหัสผ่านผู้ใช้งาน
-exports.updatePassword = async (req, res) => {
-  try {
-    const {
-      user_id,
-      password,
-    } = req.body;
-
-    if (!user_id || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "กรุณาระบุ User ID และ Password",
-      });
-    }
-
-    const [users] = await db.query(
-      `SELECT user_id
-       FROM users
-       WHERE user_id = ?`,
-      [user_id]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบผู้ใช้งาน",
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(
-      password,
-      10
-    );
-
-    await db.query(
-      `UPDATE users
-       SET
-         password_hash = ?,
-         password_reset_count =
-           password_reset_count + 1
-       WHERE user_id = ?`,
-      [
-        passwordHash,
-        user_id,
-      ]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "เปลี่ยนรหัสผ่านสำเร็จ",
-    });
-  } catch (error) {
-    console.error("Update Password Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// ======================================================
-// WORKS
-// ======================================================
-
-// GET /api/works
-// แสดงข้อมูลงานทั้งหมด
-exports.getWorks = async (req, res) => {
-  try {
-    const [works] = await db.query(
-      `SELECT
-        w.work_id,
-        w.title,
-        w.description,
-        w.work_date,
-        w.created_by,
-        w.created_at,
-        w.updated_at,
-
-        u.username AS creator_username,
-
-        p.prename AS creator_prename,
-        p.first_name AS creator_first_name,
-        p.last_name AS creator_last_name
-
-       FROM works w
-
-       LEFT JOIN users u
-         ON w.created_by = u.user_id
-
-       LEFT JOIN user_profiles p
-         ON u.user_id = p.user_id
-
-       ORDER BY
-         w.work_date DESC,
-         w.work_id DESC`
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: works,
-    });
-  } catch (error) {
-    console.error("Get Works Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// POST /api/works
-// สร้างงาน
-exports.createWork = async (req, res) => {
-  try {
-    const {
-      title,
-      description,
-      work_date,
-    } = req.body;
-
-    if (!title || !work_date) {
-      return res.status(400).json({
-        success: false,
-        message: "กรุณากรอกข้อมูลให้ครบถ้วน",
-      });
-    }
-
-    const [result] = await db.query(
-      `INSERT INTO works
-       (
-         title,
-         description,
-         work_date,
-         created_by
-       )
-       VALUES (?, ?, ?, ?)`,
-      [
-        title,
-        description || null,
-        work_date,
-        req.user.id,
-      ]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "สร้างงานสำเร็จ",
-      data: {
-        work_id: result.insertId,
-      },
-    });
-  } catch (error) {
-    console.error("Create Work Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// POST /api/works/:id/assign
-// จ่ายงานให้พนักงาน
-exports.assignWork = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { employee_id } = req.body;
-
-    if (!employee_id) {
-      return res.status(400).json({
-        success: false,
-        message: "กรุณาระบุพนักงาน",
-      });
-    }
-
-    const [work] = await db.query(
-      `SELECT work_id
-       FROM works
-       WHERE work_id = ?`,
-      [id]
-    );
-
-    if (work.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบข้อมูลงาน",
-      });
-    }
-
-    const [employee] = await db.query(
-      `SELECT user_id
-       FROM users
-       WHERE user_id = ?
-       AND role = 'employee'`,
-      [employee_id]
-    );
-
-    if (employee.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบพนักงาน",
-      });
-    }
-
-    const [existing] = await db.query(
-      `SELECT assignment_id
-       FROM work_assignments
-       WHERE work_id = ?
-       AND employee_id = ?`,
-      [
-        id,
-        employee_id,
-      ]
-    );
-
-    if (existing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "งานนี้ถูกจ่ายให้พนักงานคนนี้แล้ว",
-      });
-    }
-
-    const [result] = await db.query(
-      `INSERT INTO work_assignments
-       (
-         work_id,
-         employee_id,
-         status
-       )
-       VALUES (?, ?, ?)`,
-      [
-        id,
-        employee_id,
-        "pending",
-      ]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "จ่ายงานสำเร็จ",
-      data: {
-        assignment_id: result.insertId,
-      },
-    });
-  } catch (error) {
-    console.error("Assign Work Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// PUT /api/works/:id
-// แก้ไขข้อมูลงาน
-exports.updateWork = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const {
-      title,
-      description,
-      work_date,
-    } = req.body;
-
-    const [work] = await db.query(
-      `SELECT work_id
-       FROM works
-       WHERE work_id = ?`,
-      [id]
-    );
-
-    if (work.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบข้อมูลงาน",
-      });
-    }
-
-    await db.query(
-      `UPDATE works
-       SET
-         title = COALESCE(?, title),
-         description = COALESCE(?, description),
-         work_date = COALESCE(?, work_date)
-       WHERE work_id = ?`,
-      [
-        title,
-        description,
-        work_date,
-        id,
-      ]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "แก้ไขข้อมูลงานสำเร็จ",
-    });
-  } catch (error) {
-    console.error("Update Work Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// PUT /api/work/:id/cancel
-// ยกเลิกงาน
-exports.cancelWork = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [work] = await db.query(
-      `SELECT assignment_id
-       FROM work_assignments
-       WHERE assignment_id = ?`,
-      [id]
-    );
-
-    if (work.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบงาน",
-      });
-    }
-
-    await db.query(
-      `UPDATE work_assignments
-       SET status = ?
-       WHERE assignment_id = ?`,
-      [
-        "cancelled",
-        id,
-      ]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "ยกเลิกงานสำเร็จ",
-    });
-  } catch (error) {
-    console.error("Cancel Work Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
-  }
-};
-
-// ======================================================
-// HISTORY
-// ======================================================
-
-// GET /api/employee/total_history
-// ประวัติการรับงานทั้งหมดของพนักงาน
 exports.getEmployeeTotalHistory = async (req, res) => {
   try {
-    const [history] = await db.query(
-      `SELECT
-        wa.assignment_id,
-        wa.work_id,
-        wa.employee_id,
-        wa.status,
-        wa.assigned_at,
-        wa.updated_at,
-
-        w.title,
-        w.description,
-        w.work_date,
-
-        u.username AS employee_username,
-
-        p.prename,
-        p.first_name,
-        p.last_name,
-        p.image_url,
-        p.phone_number
-
-       FROM work_assignments wa
-
-       INNER JOIN works w
-         ON wa.work_id = w.work_id
-
-       INNER JOIN users u
-         ON wa.employee_id = u.user_id
-
-       LEFT JOIN user_profiles p
-         ON u.user_id = p.user_id
-
-       ORDER BY wa.updated_at DESC`
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: history,
-    });
+      const query = `
+          SELECT w.*, wa.status, wa.employee_id, emp_p.first_name as employee_first_name, emp_p.last_name as employee_last_name
+          FROM work_assignments wa
+          JOIN works w ON wa.work_id = w.work_id
+          LEFT JOIN user_profiles emp_p ON wa.employee_id = emp_p.user_id
+          ORDER BY wa.assigned_at DESC
+      `;
+      const [history] = await db.query(query);
+      res.status(200).json({ success: true, total: history.length, data: history });
   } catch (error) {
-    console.error(
-      "Get Employee Total History Error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
 };
 
-// GET /api/manager/total_history
-// ประวัติการรับงานทั้งหมดของผู้จัดการ
+exports.getEmployeeHistory = async (req, res) => {
+  try {
+      const { emp_id } = req.query;
+      const query = `
+          SELECT w.*, wa.status, wa.employee_id
+          FROM work_assignments wa
+          JOIN works w ON wa.work_id = w.work_id
+          WHERE wa.employee_id = ?
+          ORDER BY wa.assigned_at DESC
+      `;
+      const [history] = await db.query(query, [emp_id]);
+      res.status(200).json({ success: true, total: history.length, data: history });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
 exports.getManagerTotalHistory = async (req, res) => {
   try {
-    const [history] = await db.query(
-      `SELECT
-        wa.assignment_id,
-        wa.work_id,
-        wa.employee_id,
-        wa.status,
-        wa.assigned_at,
-        wa.updated_at,
-
-        w.title,
-        w.description,
-        w.work_date,
-
-        u.username,
-        u.role,
-
-        p.prename,
-        p.first_name,
-        p.last_name,
-        p.image_url,
-        p.phone_number
-
-       FROM work_assignments wa
-
-       INNER JOIN works w
-         ON wa.work_id = w.work_id
-
-       INNER JOIN users u
-         ON wa.employee_id = u.user_id
-
-       LEFT JOIN user_profiles p
-         ON u.user_id = p.user_id
-
-       WHERE u.role = 'manager'
-
-       ORDER BY wa.updated_at DESC`
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: history,
-    });
+      const query = `
+          SELECT w.*, u.username as creator_username, p.first_name as creator_first_name, p.last_name as creator_last_name, u.role as creator_role, wa.status, wa.employee_id
+          FROM works w
+          JOIN users u ON w.created_by = u.user_id
+          LEFT JOIN user_profiles p ON u.user_id = p.user_id
+          LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+          WHERE u.role = 'manager'
+          ORDER BY w.created_at DESC
+      `;
+      const [history] = await db.query(query);
+      res.status(200).json({ success: true, total: history.length, data: history });
   } catch (error) {
-    console.error(
-      "Get Manager Total History Error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
 };
 
-// ======================================================
-// STATUS
-// ======================================================
+exports.getManagerHistory = async (req, res) => {
+  try {
+      const { manager_id } = req.query;
+      const query = `
+          SELECT w.*, wa.status, wa.employee_id
+          FROM works w
+          JOIN users u ON w.created_by = u.user_id
+          LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+          WHERE u.role = 'manager' AND w.created_by = ?
+          ORDER BY w.created_at DESC
+      `;
+      const [history] = await db.query(query, [manager_id]);
+      res.status(200).json({ success: true, total: history.length, data: history });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
 
-// GET /api/status
-// แสดงสถานะงาน
+exports.getWorks = async (req, res) => {
+  try {
+      const query = `
+          SELECT w.*, wa.status, wa.employee_id, u.username as creator_username, u.role as creator_role
+          FROM works w
+          LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+          LEFT JOIN users u ON w.created_by = u.user_id
+          ORDER BY w.created_at DESC
+      `;
+      const [works] = await db.query(query);
+      res.status(200).json({ success: true, data: works });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.createWork = async (req, res) => {
+  try {
+      const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
+      const workId = crypto.randomUUID();
+      
+      await db.query(
+          'INSERT INTO works (work_id, title, origin, destination, equipment_type, work_date, work_time, description, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [workId, title, origin, destination, equipment_type, work_date, work_time, description, req.user.id]
+      );
+      
+      // สร้างสถานะเริ่มต้น
+      const assignmentId = crypto.randomUUID();
+      await db.query(
+          'INSERT INTO work_assignments (assignment_id, work_id, status) VALUES (?, ?, ?)',
+          [assignmentId, workId, 'pending']
+      );
+
+      res.status(201).json({ success: true, message: 'สร้างงานสำเร็จ', work_id: workId });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.updateWork = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
+      
+      await db.query(
+          'UPDATE works SET title=?, origin=?, destination=?, equipment_type=?, work_date=?, work_time=?, description=? WHERE work_id=?',
+          [title, origin, destination, equipment_type, work_date, work_time, description, id]
+      );
+      
+      res.status(200).json({ success: true, message: 'แก้ไขข้อมูลงานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.assignWork = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { employee_id } = req.body;
+      
+      await db.query(
+          'UPDATE work_assignments SET employee_id = ?, status = "pending", assigned_at = NOW() WHERE work_id = ?',
+          [employee_id, id]
+      );
+      
+      res.status(200).json({ success: true, message: 'มอบหมายงานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.cancelWork = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      await db.query(
+          'UPDATE work_assignments SET status = "cancelled", cancel_reason = ? WHERE work_id = ?',
+          [reason || 'แอดมินเป็นผู้ยกเลิก', id]
+      );
+      
+      res.status(200).json({ success: true, message: 'ยกเลิกงานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
 exports.getStatus = async (req, res) => {
   try {
-    const [status] = await db.query(
-      `SELECT
-        status,
-        COUNT(*) AS total
-       FROM work_assignments
-       GROUP BY status
-       ORDER BY status`
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: status,
-    });
+      // ดึงข้อมูลสถานะทั้งหมดของงานในระบบ
+      const [statuses] = await db.query('SELECT status, COUNT(*) as count FROM work_assignments GROUP BY status');
+      res.status(200).json({ success: true, data: statuses });
   } catch (error) {
-    console.error("Get Status Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
 };
 
-// ======================================================
-// NOTIFY
-// ======================================================
-
-// GET /api/notify
-// แสดงข้อมูลการแจ้งเตือน
-exports.getNotify = async (req, res) => {
+exports.getUsers = async (req, res) => {
   try {
-    const { status } = req.query;
-
-    let sql = `
-      SELECT *
-      FROM notifications
-      WHERE user_id = ?
-    `;
-
-    const params = [req.user.id];
-
-    if (status) {
-      sql += ` AND status = ?`;
-      params.push(status);
-    }
-
-    sql += ` ORDER BY created_at DESC`;
-
-    const [notifications] = await db.query(
-      sql,
-      params
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: notifications,
-    });
+      const query = `
+          SELECT u.user_id, u.username, u.role, u.is_active, p.prename, p.first_name, p.last_name, p.phone_number 
+          FROM users u 
+          LEFT JOIN user_profiles p ON u.user_id = p.user_id
+          ORDER BY u.created_at DESC
+      `;
+      const [users] = await db.query(query);
+      res.status(200).json({ success: true, data: users });
   } catch (error) {
-    console.error("Get Notify Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-    });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
   }
+};
+
+exports.createUser = async (req, res) => {
+  try {
+      const { username, password, role } = req.body;
+      if (!username || !password || !role) {
+          return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+      }
+
+      // เช็ค User ซ้ำ
+      const [existing] = await db.query('SELECT user_id FROM users WHERE username = ?', [username]);
+      if (existing.length > 0) {
+          return res.status(400).json({ success: false, message: 'ชื่อผู้ใช้งานนี้มีในระบบแล้ว' });
+      }
+
+      const userId = crypto.randomUUID();
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      await db.query(
+          'INSERT INTO users (user_id, username, password_hash, role) VALUES (?, ?, ?, ?)',
+          [userId, username, hashedPassword, role]
+      );
+
+      res.status(201).json({ success: true, message: 'สร้างผู้ใช้งานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { role, is_active } = req.body;
+      
+      await db.query(
+          'UPDATE users SET role = ?, is_active = ? WHERE user_id = ?',
+          [role, is_active, id]
+      );
+      
+      res.status(200).json({ success: true, message: 'อัปเดตข้อมูลผู้ใช้งานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.resetUserPassword = async (req, res) => {
+  try {
+      const { target_user_id, new_password } = req.body; // รับ ID ของคนที่ต้องการเปลี่ยนรหัส
+      if (!target_user_id || !new_password) {
+          return res.status(400).json({ success: false, message: 'กรุณาระบุผู้ใช้งานและรหัสผ่านใหม่' });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(new_password, salt);
+
+      await db.query(
+          'UPDATE users SET password_hash = ?, password_reset_count = password_reset_count + 1 WHERE user_id = ?',
+          [hashedPassword, target_user_id]
+      );
+
+      res.status(200).json({ success: true, message: 'เปลี่ยนรหัสผ่านผู้ใช้งานสำเร็จ' });
+  } catch (error) {
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+  }
+};
+
+exports.getNotifyByStatus = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                -- นับรวมทั้งงานที่สถานะเป็น NULL (ยังไม่แจกจ่าย) หรือ 'pending' (รอรับงาน)
+                SUM(CASE WHEN wa.status IS NULL OR wa.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN wa.status = 'accepted' THEN 1 ELSE 0 END) AS accepted_count,
+                SUM(CASE WHEN wa.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count,
+                SUM(CASE WHEN wa.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                SUM(CASE WHEN wa.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+            FROM works w
+            LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+        `;
+        const [stats] = await db.query(query);
+        
+        const data = {
+            pending: Number(stats[0].pending_count) || 0,
+            accepted: Number(stats[0].accepted_count) || 0,
+            in_progress: Number(stats[0].in_progress_count) || 0,
+            completed: Number(stats[0].completed_count) || 0,
+            cancelled: Number(stats[0].cancelled_count) || 0,
+        };
+
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการดึงข้อมูลแจ้งเตือน', error: error.message });
+    }
 };

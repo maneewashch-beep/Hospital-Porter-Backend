@@ -158,39 +158,32 @@ exports.getWorkStatuses = async (req, res) => {
     }
 }
 
-exports.updateEmployeePassword = async (req, res) => {
+exports.resetPasswordEmployee = async (req, res) => {
     try {
-        const { newPass } = req.body;
-
+        const { newPass } = req.body
         if (!newPass) {
-            return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านใหม่' });
+            return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านใหม่' })
         }
-
-        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user.id]);
         
-        if (users.length === 0) {
-            return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' });            
+        const [users] = await db.query('SELECT password_reset_count FROM users WHERE user_id = ?', [req.user.id])
+        
+        if (users.length === 0) { 
+            return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' })
         }
 
-        const user = users[0];
-
-        if (user.password_reset_count > 0) {
-            return res.status(403).json({ success: false, message: 'คุณได้ทำการตั้งรหัสผ่านไปแล้ว หากลืมรหัสผ่านกรุณาติดต่อ Admin' });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const newPasswordHash = await bcrypt.hash(newPass, salt);
+        const salt = await bcrypt.genSalt(10) 
+        const newPasswordHash = await bcrypt.hash(newPass, salt)
 
         await db.query(
-            'UPDATE users SET password_hash = ?, password_reset_count = password_reset_count + 1 WHERE user_id = ?', 
+            'UPDATE users SET password_hash = ? , password_reset_count = password_reset_count + 1 WHERE user_id = ?',
             [newPasswordHash, req.user.id]
-        );
+        )
 
-        res.status(200).json({ success: true, message: 'ตั้งรหัสผ่านสำเร็จ' });
+        res.status(200).json({ success: true, message: 'ตั้งรหัสผ่านสำเร็จ' })
     } catch (error) {
-        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message })
     }
-};
+}
 
 exports.getNotifications = async (req, res) => {
     try {

@@ -12,7 +12,7 @@ router.get('/employee/assign', verifyToken, isEmployee, EmpCtrl.getEmployeeAssig
 router.get('/works',verifyToken, isEmployee, EmpCtrl.getDailyWorks)
 router.put('/works/assign/:id/status', verifyToken, isEmployee, EmpCtrl.updateWorkStatus)
 router.get('/status', verifyToken, isEmployee, EmpCtrl.getWorkStatuses)
-router.put('/password/employee', verifyToken, isEmployee, EmpCtrl.updateEmployeePassword)
+router.put('/password/employee', verifyToken, isEmployee, EmpCtrl.resetPasswordEmployee)
 router.get('/notify', verifyToken, isEmployee, EmpCtrl.getNotifications)
 
 module.exports = router
