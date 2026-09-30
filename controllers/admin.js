@@ -161,6 +161,48 @@ exports.getManagerHistory = async (req, res) => {
   }
 };
 
+// exports.getWorks = async (req, res) => {
+//     try {
+//         const { date } = req.query; 
+        
+//         let query = `
+//             SELECT 
+//                 w.work_id, w.title, w.description, w.work_date, w.created_at,w.cancel_reason,
+//                 w.origin, 
+//                 w.destination, 
+//                 w.equipment_type, 
+//                 w.work_time,
+//                 creator_u.role AS creator_role,
+//                 creator_p.prename AS creator_prename,
+//                 creator_p.first_name AS creator_first_name,
+//                 creator_p.last_name AS creator_last_name,
+//                 wa.assignment_id, wa.employee_id,
+//                 COALESCE(wa.status, 'pending') AS status,
+//                 emp_p.first_name AS employee_first_name,
+//                 emp_p.last_name AS employee_last_name,
+//                 creator_u.username AS creator_username
+//             FROM works w
+//             LEFT JOIN users creator_u ON w.created_by = creator_u.user_id
+//             LEFT JOIN user_profiles creator_p ON w.created_by = creator_p.user_id
+//             LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+//             LEFT JOIN user_profiles emp_p ON wa.employee_id = emp_p.user_id
+//             WHERE (creator_u.role = 'nurse' OR w.created_by = ?)
+//         `;
+
+//         const queryParams = [req.user.id];
+//         if (date) {
+//             query += ` AND w.work_date = ?`;
+//             queryParams.push(date);
+//         }
+//         query += ` ORDER BY w.created_at DESC`;
+
+//         const [works] = await db.query(query, queryParams);
+//         res.status(200).json({ success: true, total: works.length, data: works });
+//     } catch (error) {
+//         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+//     }
+// };
+
 exports.getWorks = async (req, res) => {
   try {
       const query = `
@@ -178,84 +220,146 @@ exports.getWorks = async (req, res) => {
 };
 
 exports.createWork = async (req, res) => {
-  try {
-      const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
-      const workId = crypto.randomUUID();
-      
-      await db.query(
-          'INSERT INTO works (work_id, title, origin, destination, equipment_type, work_date, work_time, description, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [workId, title, origin, destination, equipment_type, work_date, work_time, description, req.user.id]
-      );
-      
-      // สร้างสถานะเริ่มต้น
-      const assignmentId = crypto.randomUUID();
-      await db.query(
-          'INSERT INTO work_assignments (assignment_id, work_id, status) VALUES (?, ?, ?)',
-          [assignmentId, workId, 'pending']
-      );
+    try {
+        const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
 
-      res.status(201).json({ success: true, message: 'สร้างงานสำเร็จ', work_id: workId });
-  } catch (error) {
-      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
-  }
+        if (!title || !origin || !destination || !equipment_type || !work_date) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (*)' });
+        }
+
+        const [result] = await db.query(
+            'INSERT INTO works (title, origin, destination, equipment_type, work_date, work_time, description, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [title, origin, destination, equipment_type, work_date, work_time || null, description || null, req.user.id]
+        );
+
+        res.status(201).json({ success: true, message: 'สร้างงานสำเร็จ', data: { work_id: result.insertId } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+    }
 };
 
 exports.updateWork = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
-      
-      await db.query(
-          'UPDATE works SET title=?, origin=?, destination=?, equipment_type=?, work_date=?, work_time=?, description=? WHERE work_id=?',
-          [title, origin, destination, equipment_type, work_date, work_time, description, id]
-      );
-      
-      res.status(200).json({ success: true, message: 'แก้ไขข้อมูลงานสำเร็จ' });
-  } catch (error) {
-      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
-  }
+    try {
+        const workId = req.params.id;
+        const { title, origin, destination, equipment_type, work_date, work_time, description } = req.body;
+
+        if (!title || !origin || !destination || !equipment_type || !work_date) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (*)' });
+        }
+
+        const [existingWork] = await db.query('SELECT work_id FROM works WHERE work_id = ? AND created_by = ?', [workId, req.user.id]);
+        
+        if (existingWork.length === 0) {
+            return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลงาน หรือคุณไม่มีสิทธิ์แก้ไขงานที่พยาบาลสร้าง' });
+        }
+
+        await db.query(
+            'UPDATE works SET title = ?, origin = ?, destination = ?, equipment_type = ?, work_date = ?, work_time = ?, description = ? WHERE work_id = ?',
+            [title, origin, destination, equipment_type, work_date, work_time || null, description || null, workId]
+        );
+
+        res.status(200).json({ success: true, message: 'แก้ไขข้อมูลสำเร็จ' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+    }
 };
 
 exports.assignWork = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const { employee_id } = req.body;
-      
-      await db.query(
-          'UPDATE work_assignments SET employee_id = ?, status = "pending", assigned_at = NOW() WHERE work_id = ?',
-          [employee_id, id]
-      );
-      
-      res.status(200).json({ success: true, message: 'มอบหมายงานสำเร็จ' });
-  } catch (error) {
-      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
-  }
+    try {
+        const workId = req.params.id;
+        const { employee_id } = req.body;
+
+        if (!employee_id) return res.status(400).json({ success: false, message: 'กรุณาระบุพนักงานที่ต้องการจ่ายงานให้' });
+
+        const [works] = await db.query('SELECT work_id FROM works WHERE work_id = ?', [workId]);
+        if (works.length === 0) return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลงานนี้' });
+
+        const [assignments] = await db.query('SELECT assignment_id FROM work_assignments WHERE work_id = ?', [workId]);
+        
+        if (assignments.length > 0) {
+            await db.query(
+                'UPDATE work_assignments SET employee_id = ? WHERE work_id = ?', 
+                [employee_id, workId]
+            );
+            res.status(200).json({ success: true, message: 'เปลี่ยนพนักงานรับผิดชอบสำเร็จ' });
+        } else {
+            await db.query(
+                'INSERT INTO work_assignments (work_id, employee_id, status) VALUES (?, ?, ?)',
+                [workId, employee_id, 'pending']
+            );
+            res.status(201).json({ success: true, message: 'จ่ายงานให้พนักงานสำเร็จ' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+    }
 };
+
+// exports.assignWork = async (req, res) => {
+//   try {
+//       const { id } = req.params;
+//       const { employee_id } = req.body;
+      
+//       await db.query(
+//           'UPDATE work_assignments SET employee_id = ?, status = "pending", assigned_at = NOW() WHERE work_id = ?',
+//           [employee_id, id]
+//       );
+      
+//       res.status(200).json({ success: true, message: 'มอบหมายงานสำเร็จ' });
+//   } catch (error) {
+//       res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+//   }
+// };
 
 exports.cancelWork = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const { reason } = req.body;
-      
-      await db.query(
-          'UPDATE work_assignments SET status = "cancelled", cancel_reason = ? WHERE work_id = ?',
-          [reason || 'แอดมินเป็นผู้ยกเลิก', id]
-      );
-      
-      res.status(200).json({ success: true, message: 'ยกเลิกงานสำเร็จ' });
-  } catch (error) {
-      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
-  }
+    try {   
+        const workId = req.params.id;
+        const { reason } = req.body; // 🌟 รับเหตุผลการยกเลิกจากหน้าเว็บ
+
+        const [works] = await db.query('SELECT work_id FROM works WHERE work_id = ?', [workId]);
+        if (works.length === 0) {
+            return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลงานนี้' });
+        }
+
+        await db.query('UPDATE works SET cancel_reason = ? WHERE work_id = ?', [reason, workId]);
+        const [assignment] = await db.query('SELECT assignment_id FROM work_assignments WHERE work_id = ?', [workId]);
+        
+        if (assignment.length > 0) {
+            await db.query('UPDATE work_assignments SET status = "cancelled" WHERE work_id = ?', [workId]);
+        } else {
+            await db.query('INSERT INTO work_assignments (work_id, status) VALUES (?, "cancelled")', [workId]);
+        }
+
+        res.status(200).json({ success: true, message: 'ยกเลิกงานและบันทึกเหตุผลเรียบร้อยแล้ว' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+    }
 };
 
-exports.getStatus = async (req, res) => {
-  try {
-      // ดึงข้อมูลสถานะทั้งหมดของงานในระบบ
-      const [statuses] = await db.query('SELECT status, COUNT(*) as count FROM work_assignments GROUP BY status');
-      res.status(200).json({ success: true, data: statuses });
-  } catch (error) {
-      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
-  }
+exports.getWorkStatus = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                COALESCE(wa.status, 'pending') AS status,
+                COUNT(w.work_id) AS total_count
+            FROM works w
+            LEFT JOIN users creator_u ON w.created_by = creator_u.user_id
+            LEFT JOIN work_assignments wa ON w.work_id = wa.work_id
+            WHERE (creator_u.role = 'nurse' OR w.created_by = ?)
+            GROUP BY COALESCE(wa.status, 'pending')
+        `;
+
+        const [statusSummary] = await db.query(query, [req.user.id]);
+        const allStatus = ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'];
+        
+        const formattedResult = allStatus.map(statusKey => {
+            const found = statusSummary.find(item => item.status === statusKey);
+            return { status: statusKey, count: found ? parseInt(found.total_count) : 0 };
+        });
+
+        res.status(200).json({ success: true, data: formattedResult });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด', error: error.message });
+    }
 };
 
 exports.getUsers = async (req, res) => {

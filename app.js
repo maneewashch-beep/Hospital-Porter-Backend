@@ -25,6 +25,6 @@ app.use('/api/manager', ManagerRouter)
 const AdminRouter = require('./routes/admin');
 app.use('/api/admin', AdminRouter)
 
-app.listen(process.env.PORT, () => 
+app.listen(process.env.PORT, '0.0.0.0', () => 
     console.log(`Server running on port ${process.env.PORT}!`)
 )
